@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WYSIWYG HTML Editor</title>
+
+  <link href="./style/quill.snow.css" rel="stylesheet">
+
+  <link href="./style/all.min.css" rel="stylesheet">
+
+  <link href="./style/mystyle.css" rel="stylesheet">
+</head>
+<body>
+ 
+
+  <div class="container">
+   <div class="my_container">
+    <button id="clear-vs-editor" class="btn my_container">Clear Visual</button>
+    <button id="rtl_btn" class="btn my_container">RTL</button>
+  </div>
+    <div class="editor-container">
+      <div class="visual-editor-panel">
+        <div class="panel-header">
+          <div class="panel-title">Visual Editor</div>
+          <button id="update-html" class="btn btn-update">
+            <i class="fas fa-sync-alt"></i>
+            Update HTML
+          </button>
+        </div>
+
+        <div class="editor-content">
+          <div id="visual-editor"></div>
+        </div>
+        <div class="button-row">
+          <button id="paste-to-vs-editor" class="btn">paste</button>
+           
+        </div>
+      </div>
+
+ 
+      <div class="html-editor-panel">
+        <div class="panel-header">
+          <div class="panel-title">HTML Code</div>
+ 
+
+          <button id="update-visual" class="btn btn-update">
+            <i class="fas fa-sync-alt"></i>
+            Update Visual
+          </button>
+        </div>
+
+        <textarea id="html-editor" placeholder="HTML code will appear here..."></textarea>
+
+        <div class="button-row">
+          
+   
+
+          <button id="highlight-word-btn" class="btn" title="Highlight a single word (and its verb forms)">
+            <i class="fas fa-magic"></i>
+             High word
+          </button>
+          <button id="highlight-pverb-btn" class="btn" title="Highlight a phrasal verb (e.g., 'tip off')">
+            <i class="fas fa-link"></i>
+             High P.verb
+          </button>
+          <button id="clean-whitespace" class="btn">
+            <i class="fas fa-broom"></i>
+            cl wh
+          </button>
+          <button id="add_class_rtl" class="btn">
+            <i class="fas fa-language"></i>
+            Class RTL
+          </button>
+
+
+
+          <button id="copy-html-btn" class="btn">
+            <i class="fas fa-copy"></i>
+            Copy HTML
+          </button>
+          
+        </div>
+
+        <div id="html-status" class="status-message"></div>
+      </div>
+    </div>
+
+    <footer>
+      <p>&copy; 2025 WYSIWYG HTML Editor | Built with Quill.js</p>
+    </footer>
+  </div>
+
+  <script src="scripts/quill.min.js"></script>
+ 
+  <script src="https://unpkg.com/compromise@14.14.4/builds/compromise.js"></script>
+ 
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // Initialize Quill editor
+      const quill = new Quill('#visual-editor', {
+        modules: {
+          toolbar: [
+            [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
+            ['bold', 'italic', 'underline', 'strike'],
+            [{ 'color': [] }, { 'background': [] }],
+            [{ 'align': [] }],
+            [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+            [{ 'direction': 'rtl' }],
+            ['link', 'image', 'code-block'],
+            ['clean']
+          ]
+        },
+        placeholder: 'Start composing your content...',
+        theme: 'snow'
+      });
+
+      // Get elements
+      const htmlEditor = document.getElementById('html-editor');
+      const updateHtmlBtn = document.getElementById('update-html');
+      const updateVisualBtn = document.getElementById('update-visual');
+      const cleanWhitespaceBtn = document.getElementById('clean-whitespace');
+      const add_class_rtl = document.getElementById('add_class_rtl');
+      const rtl_btn = document.getElementById('rtl_btn');
+      const htmlStatus = document.getElementById('html-status');
+      const pasteToVsEditorBtn = document.getElementById('paste-to-vs-editor');
+      const clearVsEditorBtn = document.getElementById('clear-vs-editor');
+      const copyHtmlBtn = document.getElementById('copy-html-btn');
+      
+      // START: Get new buttons
+      const highlightWordBtn = document.getElementById('highlight-word-btn');
+      const highlightPverbBtn = document.getElementById('highlight-pverb-btn');
+      // END: Get new buttons
+
+      function showStatus(message, duration = 3000) {
+        htmlStatus.textContent = message;
+        htmlStatus.style.display = 'block';
+        setTimeout(() => {
+          htmlStatus.style.display = 'none';
+        }, duration);
+      }
+
+      updateHtmlBtn.addEventListener('click', () => htmlEditor.value = quill.root.innerHTML);
+      updateVisualBtn.addEventListener('click', () => quill.root.innerHTML = htmlEditor.value);
+      
+      cleanWhitespaceBtn.addEventListener('click', () => {
+        htmlEditor.value = htmlEditor.value.replace(/>\s+</g, '><');
+        showStatus('Whitespace removed!');
+      });
+
+     
+
+      // START: Connect new buttons to their functions
+      highlightWordBtn.addEventListener('click', highlightSingleWord);
+      highlightPverbBtn.addEventListener('click', highlightPhrasalVerb);
+      // END: Connect new buttons
+
+      function colorizeH3Headings() {
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = htmlEditor.value;
+        tempDiv.querySelectorAll('h3').forEach(h3 => {
+            h3.innerHTML = `<span style="background-color: rgb(248, 202, 198);">${h3.innerHTML}</span>`;
+        });
+        const finalHtml = tempDiv.innerHTML;
+        htmlEditor.value = finalHtml;
+        quill.root.innerHTML = finalHtml;
+        showStatus('H3 headings colored!');
+      }
+
+      // --- START: NEW SEPARATED FUNCTIONS ---
+
+      // Function for the "High word" button
+      function highlightSingleWord() {
+        colorizeH3Headings();
+          const keyword = getKeyword();
+          if (!keyword) return;
+
+          if (keyword.includes(' ')) {
+              showStatus('For multi-word phrases, please use the "High P.verb" button.');
+              return;
+          }
+
+          let searchTerms = [];
+          const doc = nlp(keyword);
+
+          if (doc.verbs().length > 0) {
+              const conjugations = doc.verbs().conjugate()[0] || {};
+              searchTerms = Object.values(conjugations).filter(v => v);
+          } else {
+              searchTerms.push(keyword);
+          }
+          
+          applyHighlighting(searchTerms, keyword);
+      }
+
+      // Function for the "High P.verb" button
+      function highlightPhrasalVerb() {
+        colorizeH3Headings();
+          const keyword = getKeyword();
+          if (!keyword) return;
+
+          let regexPatterns = [];
+          const keywordParts = keyword.split(/\s+/).filter(part => part.length > 0);
+          const firstWord = keywordParts[0] || '';
+
+          // Logic for phrasal verbs
+          if (keywordParts.length > 1 && nlp(firstWord).verbs().length > 0) {
+              const verbPart = nlp(firstWord).verbs();
+              const conjugations = verbPart.conjugate()[0] || {};
+              const verbForms = Object.values(conjugations).filter(v => v);
+              const restOfPhrase = keywordParts.slice(1).join(' ');
+
+              verbForms.forEach(form => {
+                  regexPatterns.push(`\\b${form}\\s+${restOfPhrase}\\b`);
+                  regexPatterns.push(`\\b${form}\\s+(?:[\\w']+\\s+){0,5}?${restOfPhrase}\\b`);
+              });
+              regexPatterns.push(`\\b${keywordParts[0]}-${restOfPhrase}s?\\b`);
+          } 
+          // Fallback for multi-word nouns or idioms
+          else {
+              regexPatterns.push(`\\b${keyword}\\b`);
+              if (keywordParts.length > 1) {
+                  regexPatterns.push(`\\b(?:${keywordParts.join('|')})\\b`);
+              }
+          }
+
+          const finalRegexString = [...new Set(regexPatterns)].join('|');
+          const combinedRegex = new RegExp(`(${finalRegexString})`, 'gi');
+          applyHighlighting(combinedRegex, keyword, true);
+      }
+
+      // Helper function to get the keyword from the first <strong> tag
+      function getKeyword() {
+          const tempDiv = document.createElement('div');
+          tempDiv.innerHTML = htmlEditor.value;
+          const firstStrongTag = tempDiv.querySelector('strong');
+
+          if (!firstStrongTag) {
+              showStatus('No bold keyword found.');
+              return null;
+          }
+          const keyword = firstStrongTag.textContent.trim();
+          if (!keyword) {
+              showStatus('Bold tag is empty.');
+              return null;
+          }
+          return keyword;
+      }
+
+      // General function to apply the highlighting based on the generated regex
+      function applyHighlighting(searchTermsOrRegex, originalKeyword, isRegex = false) {
+          let combinedRegex;
+          if (isRegex) {
+              combinedRegex = searchTermsOrRegex;
+          } else {
+              const regexString = searchTermsOrRegex.map(part => part.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')).join('|');
+              combinedRegex = new RegExp(`\\b(${regexString})\\b`, 'gi');
+          }
+
+          const tempDiv = document.createElement('div');
+          tempDiv.innerHTML = htmlEditor.value;
+          const firstStrongTag = tempDiv.querySelector('strong');
+
+          // Highlight English examples
+          tempDiv.querySelectorAll('blockquote, li, p, div').forEach(example => {
+              if (example.contains(firstStrongTag)) return; // Skip the keyword's own line
+
+              if (/[a-zA-Z]/.test(example.textContent) && combinedRegex.test(example.textContent)) {
+                  combinedRegex.lastIndex = 0;
+                  example.innerHTML = example.innerHTML.replace(combinedRegex, match => `<strong>${match}</strong>`);
+                  example.innerHTML = `<span style="background-color: rgb(255, 241, 118);">${example.innerHTML}</span>`;
+              }
+          });
+
+          // Highlight Arabic translations
+          tempDiv.querySelectorAll('li, p, div').forEach(trans => {
+              if (/[\u0600-\u06FF]/.test(trans.textContent) && trans.querySelector('strong')) {
+                  trans.querySelectorAll('strong').forEach(strongEl => {
+                      if (strongEl.parentElement.tagName !== 'SPAN' || !strongEl.parentElement.style.backgroundColor) {
+                          const highlightSpan = document.createElement('span');
+                          highlightSpan.style.backgroundColor = 'rgb(191, 237, 210)';
+                          strongEl.parentNode.insertBefore(highlightSpan, strongEl);
+                          highlightSpan.appendChild(strongEl);
+                      }
+                  });
+              }
+          });
+
+          const finalHtml = tempDiv.innerHTML;
+          htmlEditor.value = finalHtml;
+          quill.root.innerHTML = finalHtml;
+          showStatus('Highlighting applied successfully!');
+      }
+
+      // --- END: NEW SEPARATED FUNCTIONS ---
+      
+      // Other button handlers and utility functions...
+      rtl_btn.addEventListener('click', function() {
+        let htmlInput = htmlEditor.value;
+        htmlInput = htmlInput.replace(/<strong>\s*<\/strong>/g, ' ');
+        let codeReplacedHtml = htmlInput.replace(/<code[^>]*>/g, '<b>').replace(/<\/code>/g, '</b>');
+        const processedHTML = modifyHTML_noraml_rtl(codeReplacedHtml);
+        htmlEditor.value = processedHTML.replace(/<p([\s\S]*?)>/g, '<div$1>').replace(/<\/p>/g, '</div>');
+        copyHTMLToClipboard();
+      });
+
+      quill.on('text-change', (delta, oldDelta, source) => {
+        if (source === 'user') htmlEditor.value = quill.root.innerHTML;
+      });
+
+      htmlEditor.addEventListener('input', () => {
+        if (quill.root.innerHTML !== htmlEditor.value) quill.root.innerHTML = htmlEditor.value;
+      });
+
+      pasteToVsEditorBtn.addEventListener('click', () => {
+        navigator.clipboard.readText().then(clipText => {
+            quill.focus();
+            quill.clipboard.dangerouslyPasteHTML(quill.getSelection(true).index, clipText);
+        }).catch(err => showStatus('Paste failed. Please use Ctrl+V.'));
+      });
+
+      clearVsEditorBtn.addEventListener('click', () => {
+        quill.setText('');
+        quill.focus();
+        showStatus('Visual editor cleared!');
+      });
+
+      copyHtmlBtn.addEventListener('click', () => {
+        const tempTextArea = document.createElement('textarea');
+        tempTextArea.value = htmlEditor.value;
+        document.body.appendChild(tempTextArea);
+        tempTextArea.select();
+        try {
+          document.execCommand('copy');
+          showStatus('HTML copied!');
+        } catch (err) {
+          showStatus('Failed to copy: ' + err);
+        }
+        document.body.removeChild(tempTextArea);
+      });
+      
+      function modifyHTML_noraml_rtl(html) {
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = html;
+
+            // add padding to ul tags
+            const ulElements = tempDiv.querySelectorAll('ul');
+            ulElements.forEach((ul, index) => {
+            //ul.setAttribute('style', 'padding-left:15px;padding-right: 15px;');
+            ul.style.paddingLeft = '15px';
+            ul.style.paddingRight = '15px';
+            });
+
+            tempDiv.querySelectorAll('p, div, h1, h2, h3, h4, h5, h6, blockquote, li').forEach(element => {
+                const cleanText = element.textContent.replace(/[^\p{L}\p{N}\s]/gu, '').trim().replace(/^\d+\s*/, '');
+                if (cleanText && /^[\u0600-\u06FF]/.test(cleanText)) {
+                    element.style.textAlign = 'right';
+                    element.dir = 'rtl';
+                }
+            });
+            return tempDiv.innerHTML;
+        }
+
+      function copyHTMLToClipboard() {
+        const cleanedHtml = htmlEditor.value.replace(/>\s+</g, '><');
+        navigator.clipboard.writeText(cleanedHtml)
+            .then(() => showStatus('Code copied!'))
+            .catch(err => showStatus('Error copying: ' + err));
+      }
+
+      htmlEditor.value = quill.root.innerHTML;
+    });
+  </script>
+</body>
+</html>
